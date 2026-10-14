@@ -26,6 +26,7 @@ CREATE TABLE recompensa (
 CREATE TABLE registro_actividad (
     id_registro INTEGER GENERATED ALWAYS AS IDENTIFIER PRIMARY KEY,
     fecha_inicio TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    fecha_fin TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     --fk
     recompensa_id INTEGER REFERENCES recompensa(id_recompensa) NOT NULL,
     estudiante_id INTEGER REFERENCES estudiante(id_estudiante) NOT NULL
