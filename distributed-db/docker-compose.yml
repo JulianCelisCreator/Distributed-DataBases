@@ -1,0 +1,51 @@
+services:
+  primario:
+    image: postgres:18
+    container_name: primario
+    env_file: .env
+    environment:
+      REPLICATION_USER: ${REPLICATION_USER:-replicador}
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replica123}
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=10
+      -c wal_keep_size=256MB
+      -c hot_standby=on
+    volumes:
+      - datos-primario:/var/lib/postgresql
+      # Se ejecutan en orden alfabético, solo con el volumen vacío
+      - ./docker/00-replicacion.sh:/docker-entrypoint-initdb.d/00-replicacion.sh
+      - ./DDL.sql:/docker-entrypoint-initdb.d/01-DDL.sql
+      - ./DML.sql:/docker-entrypoint-initdb.d/02-DML.sql
+    ports:
+      - "5433:5432"
+    healthcheck:
+      # -h 127.0.0.1: el servidor temporal de la inicialización no escucha por TCP,
+      # así que solo responde cuando DDL y DML ya terminaron
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  replica:
+    image: postgres:18
+    container_name: replica
+    user: postgres
+    entrypoint: ["/replica-entrypoint.sh"]
+    environment:
+      PRIMARY_HOST: primario
+      REPLICATION_USER: ${REPLICATION_USER:-replicador}
+      PGPASSWORD: ${REPLICATION_PASSWORD:-replica123}
+    volumes:
+      - datos-replica:/var/lib/postgresql
+      - ./docker/replica-entrypoint.sh:/replica-entrypoint.sh
+    ports:
+      - "5434:5432"
+    depends_on:
+      primario:
+        condition: service_healthy
+        
+volumes:
+  datos-primario:
+  datos-replica:

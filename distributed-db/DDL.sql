@@ -4,50 +4,32 @@ CREATE DATABASE oficio;
 \c oficio
 
 CREATE TABLE estudiante (
-    id_estudiante UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_estudiante UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre VARCHAR (255) NOT NULL,
     fecha_nacimiento DATE NOT NULL
 );
 
 CREATE TABLE hobbie (
-    id_hobbie UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_hobbie UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     nombre_hobbie VARCHAR (255) NOT NULL UNIQUE
 );
 
 CREATE TABLE recompensa (
-    id_recompensa UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,    
+    id_recompensa UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     precio DECIMAL(10, 2) NOT NULL CHECK (precio > 0),
     --fk
-    hobbie_id UUID REFERENCES hobbie(id_hobbie) NOT NULL,
-    vigente_desde TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(hobbie_id, vigente_desde)
+    hobbie_id UUID REFERENCES hobbie(id_hobbie) NOT NULL
 );
-/**
-CREATE TABLE recompensa (
-    id_recompensa UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,    
-    precio DECIMAL(10, 2) NOT NULL CHECK (precio > 0),
-    --fk
-    hobbie_id UUID REFERENCES hobbie(id_hobbie) NOT NULL,
-
-);
-**/
 
 CREATE TABLE registro_actividad (
-    id_registro UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    fecha_inicio TIMESTAMPTZ NOT NULL DEFAULT NOW() CHECK (fecha_inicio <= fecha_fin()),
-    fecha_fin TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    --fk
-    recompensa_id UUID REFERENCES recompensa(id_recompensa) NOT NULL,
-    estudiante_id UUID REFERENCES estudiante(id_estudiante) NOT NULL
-);
-
-/**
-CREATE TABLE registro_actividad (
-    id_registro UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id_registro UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     duracion INTEGER NOT NULL CHECK (duracion > 0),
     precio DECIMAL(10, 2) NOT NULL CHECK (precio > 0),
     --fk
     recompensa_id UUID REFERENCES recompensa(id_recompensa) NOT NULL,
     estudiante_id UUID REFERENCES estudiante(id_estudiante) NOT NULL
 );
-**/
+
+CREATE INDEX idx_registro_actividad_estudiante_id ON registro_actividad(estudiante_id);
+CREATE INDEX idx_registro_actividad_recompensa_id ON registro_actividad(recompensa_id);
+CREATE INDEX idx_recompensa_hobbie_id ON recompensa(hobbie_id);
