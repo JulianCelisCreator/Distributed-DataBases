@@ -1,4 +1,3 @@
-\c oficio
 
 -- 500 registros: 150 estudiantes, 20 hobbies, 30 recompensas, 300 registros de actividad
 -- UUID fijos para que las referencias sean legibles y los datos reproducibles en cada nodo:

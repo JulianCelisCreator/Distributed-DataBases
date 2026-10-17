@@ -8,8 +8,6 @@
 -- Ver cambios.md, sección 7, para las columnas del DDL que chocan con esto.
 -- =============================================================================
 
-\c patasana
-
 -- -----------------------------------------------------------------------------
 -- Lugares
 -- region: tipo de lugar. lugar: jerarquía por lugar_padre_id

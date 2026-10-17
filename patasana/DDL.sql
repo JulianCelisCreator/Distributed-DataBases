@@ -1,7 +1,3 @@
-\c patasana
-DROP DATABASE IF EXISTS patasana;
-CREATE DATABASE patasana;
-
 
 -- Generalidades
 
