@@ -18,9 +18,26 @@ SELECT s.nombre_sede AS "nombre sede", s.fecha_apertura AS "fecha apertura"
 FROM sede s
 ORDER BY "fecha_apertura";
 ```
-- [ ] **C2** 🟢 Muestra los cargos que están habilitados para atender pacientes.
+- [ ] **C2** 🟢 Muestra los cargos que están habilitados para atender pacientes
+```sql
+select c.nombre_cargo as "rol name"
+from cargo c
+where esta_habilitado is true;
+```
 - [ ] **C3** 🟢 Muestra los empleados inactivos. Si no hay ninguno, explica qué columna lo indica y qué valor tendría.
+```sql
+select CONCAT(p.nombre, ' ',p.apellido) as "nombre empleado"
+from personal p
+where is_active is true;
+
+select (p.nombre || ' ' || p.apellido) as "nombre empleado"
+from personal p
+where is_active is true;
+```
 - [ ] **C4** 🟢 Lista las mascotas hembra que pesan menos de 5 kg. Recuerda que el peso está en gramos.
+```sql
+
+```
 - [ ] **C5** 🟢 Muestra las mascotas cuya fecha de nacimiento no se conoce.
 - [ ] **C6** 🟢 Muestra las mascotas fallecidas con su fecha de muerte, de la más reciente a la más antigua.
 - [ ] **C7** 🟢 Lista los servicios que duran 30 minutos o más, ordenados por duración y, a igual duración, por precio.
