@@ -36,11 +36,31 @@ where is_active is true;
 ```
 - [ ] **C4** 🟢 Lista las mascotas hembra que pesan menos de 5 kg. Recuerda que el peso está en gramos.
 ```sql
+select m.nombre as "nombre", m.peso_g|| ' gr' as "peso mascota"
+from mascota m
+where m.peso_g < 5000;
 
 ```
 - [ ] **C5** 🟢 Muestra las mascotas cuya fecha de nacimiento no se conoce.
+```sql
+select m.nombre as nombre
+from mascota m
+where m.fecha_nacimiento is null;
+```
 - [ ] **C6** 🟢 Muestra las mascotas fallecidas con su fecha de muerte, de la más reciente a la más antigua.
+```sql
+SELECT *
+FROM mascota m
+WHERE fecha_muerte IS NOT NULL
+ORDER BY fecha_muerte desc;
+```
 - [ ] **C7** 🟢 Lista los servicios que duran 30 minutos o más, ordenados por duración y, a igual duración, por precio.
+```sql
+select *
+from servicios s
+where duracion >= 30
+order by s.duracion, s.precio asc;
+```
 - [ ] **C8** 🟢 Muestra las citas canceladas o en estado *no asistió*.
 - [ ] **C9** 🟢 Lista los medicamentos que **no** exigen fórmula médica.
 - [ ] **C10** 🟢 Muestra las filas del inventario cuyo stock es exactamente igual al mínimo.
