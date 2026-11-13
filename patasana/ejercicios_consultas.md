@@ -61,7 +61,15 @@ from servicios s
 where duracion >= 30
 order by s.duracion, s.precio asc;
 ```
+
 - [ ] **C8** 🟢 Muestra las citas canceladas o en estado *no asistió*.
+
+```sql
+select *
+from cita 
+where estado::text ilike '%asisti%' or estado::text ilike '%atendida%';
+```
+
 - [ ] **C9** 🟢 Lista los medicamentos que **no** exigen fórmula médica.
 - [ ] **C10** 🟢 Muestra las filas del inventario cuyo stock es exactamente igual al mínimo.
 - [ ] **C11** 🟢 Lista las citas que tienen el motivo vacío.
