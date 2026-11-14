@@ -71,42 +71,217 @@ where estado::text ilike '%asisti%' or estado::text ilike '%atendida%';
 ```
 
 - [ ] **C9** 🟢 Lista los medicamentos que **no** exigen fórmula médica.
-- [ ] **C10** 🟢 Muestra las filas del inventario cuyo stock es exactamente igual al mínimo.
-- [ ] **C11** 🟢 Lista las citas que tienen el motivo vacío.
-- [ ] **C12** 🟢 Muestra los 3 servicios más caros.
+```sql
+select *
+from medicamento
+where es_formulado = 'TRUE';
+```
 
+- [ ] **C10** 🟢 Muestra las filas del inventario cuyo stock es exactamente igual al mínimo.
+```sql
+select *
+from inventario i
+where i.stock = i.minimo_stock;
+
+```
+- [ ] **C11** 🟢 Lista las citas que tienen el motivo vacío.
+```sql
+select *
+from cita
+where motivo = '' or motivo is NULL;
+```
+- [ ] **C12** 🟢 Muestra los 3 servicios más caros.
+```sql
+select *
+from servicios s
+order by s.precio desc
+limit 3;
+```
 ## Parte 2. Fechas y texto
 
 - [ ] **C13** 🟢 Muestra el año en que abrió cada sede y cuántos años lleva abierta hoy.
+```sql
+select s.fecha_apertura as "Fecha apertura", date_part('year', AGE(current_date, s.fecha_apertura)) as anios
+from sede s;
+```
 - [ ] **C14** 🟡 Lista las citas con la fecha y la hora en columnas separadas, con la fecha en formato `dd/mm/aaaa`.
+```sql
+select 
+	date_part('day', fecha_cita) || '/' || date_part('month', fecha_cita) || '/' || date_part('year', fecha_cita) as fecha,
+	fecha_cita::time(0) as "fecha_hora"
+from cita
+```
 - [ ] **C15** 🟡 Muestra cada cita en hora de Bogotá y en UTC. Explica por qué difieren y qué papel cumple la zona horaria que configuraste en el `docker-compose.yaml`.
+
+```sql
+select
+	fecha_cita at TIME zone 'America/Bogota' as hora_bogota,
+	fecha_cita at TIME zone 'UTC' as hora_bogota
+from cita;
+```
 - [ ] **C16** 🟡 Cuenta cuántas citas hubo en cada franja: mañana (antes de las 12), tarde (12 a 18) y noche.
+
+```sql
+select
+	case
+		when (extract(hour from fecha_cita) >= 0) and (extract(hour from fecha_cita)) < 12 then 'Morning'
+		when (extract(hour from fecha_cita) >= 12) and (extract(hour from fecha_cita)) < 18 then 'afternoon'
+		when (extract(hour from fecha_cita) >= 18) and (extract(hour from fecha_cita)) < 24 then 'Evening'
+	end as hora,
+	COUNT(id_cita) as "cantidad citas"
+from cita
+group by hora;
+```
+
 - [ ] **C17** 🟡 Calcula la edad en años que tenía cada mascota fallecida al morir. Si no se conoce su nacimiento, muestra "Sin datos".
+```sql
+select nombre as nombre, coalesce(cast(EXTRACT(year from AGE(fecha_muerte, fecha_nacimiento)) as TEXT), 'sin datos') as Edad
+from mascota
+where fecha_muerte is not null;
+```
 - [ ] **C18** 🟢 Muestra el peso de cada mascota en kilogramos, con un decimal.
+```sql
+select TRUNC(peso_g/1000,1) as peso
+from mascota;
+```
 - [ ] **C19** 🟡 Busca las mascotas cuya observación menciona la palabra "alergia", sin importar mayúsculas ni tildes en la escritura más común.
+```sql
+select *
+from mascota m
+where observacion ilike 'alerg%';
+```
 - [ ] **C20** 🟢 Muestra el nombre de cada empleado con su apellido en mayúsculas y la longitud de su nombre completo.
+
+```sql
+select nombre || ' ' || UPPER(apellido) as nombre_completo, length(nombre || ' ' || UPPER(apellido))
+from personal
+```
 - [ ] **C21** 🟡 Lista los empleados que ingresaron en el mismo mes del año (sin importar el año) que la sede donde trabajan abrió.
+
+```sql
+select *
+from personal p
+join sede s on s.id_sede = p.sede_id
+where p.fecha_ingreso = s.fecha_apertura;
+```
 - [ ] **C22** 🟡 Muestra las citas que ocurrieron en un día festivo de fin de año: entre el 24 y el 31 de diciembre de cualquier año.
+
+```sql
+select *
+from cita c
+where extract(day from c.fecha_cita) between 24 and 31 and extract(month from c.fecha_cita) 
+```
 
 ## Parte 3. Agregación
 
 - [ ] **C23** 🟢 Cuenta cuántos empleados tiene cada cargo.
+```sql
+select c.nombre_cargo  as cargo, COUNT(p.id_personal) as cantidad
+from personal p
+join cargo c on c.id_cargo = p.cargo_id
+group by c.nombre_cargo, p.cargo_id;
+```
 - [ ] **C24** 🟢 Cuenta cuántas razas tiene registradas cada especie.
+```sql
+select e.nombre , count(r.id_raza )
+from raza r
+join especie e on e.id_especie = r.especie_id
+group by e.nombre
+```
 - [ ] **C25** 🟢 Calcula el peso mínimo, máximo y promedio de las mascotas de cada sexo.
+```sql
+select 
+	case
+		when m.sexo = 'H' then 'Hembra'
+		else 'Macho'
+	END as sexo,
+	MIN(m.peso_g), MAX(m.peso_g), TRUNC(AVG(m.peso_g)) as peso_promedio
+from mascota m
+group by m.sexo
+```
 - [ ] **C26** 🟡 Cuenta cuántas mascotas tiene cada cliente y muestra solo los que tienen más de una.
-- [ ] **C27** 🟡 Muestra, por cada mes de 2025, cuántas citas se agendaron. Ordena por mes.
-- [ ] **C28** 🟡 Por cada categoría de servicio, muestra cuántos servicios tiene y el precio promedio.
-- [ ] **C29** 🟡 Por cada sede, calcula las unidades totales en inventario y cuántos medicamentos distintos maneja.
-- [ ] **C30** 🟡 Calcula qué porcentaje de las citas terminó en cada estado.
-- [ ] **C31** 🟡 Calcula la cantidad total formulada de cada medicamento y en cuántas citas distintas se formuló.
-- [ ] **C32** 🔴 En una sola fila, muestra cuántas mascotas hay vivas, cuántas fallecidas y cuántas sin fecha de nacimiento.
+```sql
+select c.nombre, count(m.cliente_id)
+from mascota m
+join cliente c on c.id_cliente = m.cliente_id
+group by c.nombre
+```
 
+- [ ] **C27** 🟡 Muestra, por cada mes de 2025, cuántas citas se agendaron. Ordena por mes.
+
+```sql
+select distinct(extract(month from c.fecha_cita)) as MONTH, count(id_cita) as CANTIDAD
+from cita c
+group by extract(month from c.fecha_cita)
+order by MONTH asc;
+```
+- [ ] **C28** 🟡 Por cada categoría de servicio, muestra cuántos servicios tiene y el precio promedio.
+
+```sql
+select c.nombre as "nombre categoria", count(s.categoria_id ), AVG(s.precio)
+from servicios s
+join categoria c on c.id_categoria = s.categoria_id;
+```
+- [ ] **C29** 🟡 Por cada sede, calcula las unidades totales en inventario y cuántos medicamentos distintos maneja.
+
+```sql
+select s.nombre_sede as "nombre sede", SUM(stock), COUNT(distinct(medicamento_id))
+from sede s
+join inventario i on i.sede_id = s.id_sede
+group by s.nombre_sede
+```
+- [ ] **C30** 🟡 Calcula qué porcentaje de las citas terminó en cada estado.
+
+```sql
+select c.estado, (COUNT((c.estado) )/(select COUNT(*) from cita)::numeric)*100 as Porcentaje 
+from cita c
+group by c.estado
+```
+- [ ] **C31** 🟡 Calcula la cantidad total formulada de cada medicamento y en cuántas citas distintas se formuló.
+
+```sql
+select m.id_medicamento , m.nombre, SUM(f.cantidad), COUNT(distinct(f.cita_id)) 
+from formula f
+join medicamento m on m.id_medicamento = f.medicamento_id
+group by m.id_medicamento 
+```
+- [ ] **C32** 🔴 En una sola fila, muestra cuántas mascotas hay vivas, cuántas fallecidas y cuántas sin fecha de nacimiento.
+```sql
+select 
+	COUNT(*) filter (where fecha_muerte is null), 
+	COUNT(*) filter (where m.fecha_muerte is not null), 
+	COUNT(*) filter (where m.fecha_nacimiento is null)
+from mascota m;
+
+```
 ## Parte 4. JOINs
 
 - [ ] **C33** 🟢 Muestra cada sede con el nombre de su ciudad y su número de teléfono.
+```sql
+select s.nombre_sede as "Nombre sede", l.nombre as "Nombre ciudad", t.numero as "Numero telefono"
+from sede s
+join lugar l ON l.id_lugar = s.ciudad_id 
+join telefono t on t.id_telefono = s.telefono_id;
+```
 - [ ] **C34** 🟢 Lista los empleados con su número de documento y su teléfono.
+```sql
+select p.nombre, d.numero, t.numero
+from personal p
+join documento d on d.id_documento = p.documento_id
+join telefono t on t.id_telefono  = p.telefono_id;
+```
 - [ ] **C35** 🟢 Muestra los medicamentos con el nombre de su presentación.
+```sql
+select m.nombre as medicamento, p.nombre as presentacion
+from medicamento m 
+join presentacion p on p.id_presentacion = m.presentacion_id;
+```
 - [ ] **C36** 🟢 Lista los servicios con el nombre de su categoría.
+```sql
+select s.nombre, c.nombre 
+from servicios s 
+join categoria c  on s.categoria_id = c.id_categoria; 
+```
 - [ ] **C37** 🟡 Muestra el inventario completo con el nombre de la sede y el del medicamento, ordenado por sede.
 - [ ] **C38** 🟡 Muestra cada fórmula con la fecha de la cita, el nombre de la mascota, el medicamento y la cantidad.
 - [ ] **C39** 🟡 Lista los clientes con la ciudad donde viven y los nombres de sus mascotas, incluidos los clientes sin mascotas.
