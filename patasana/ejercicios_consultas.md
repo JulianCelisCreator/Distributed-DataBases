@@ -283,20 +283,240 @@ from servicios s
 join categoria c  on s.categoria_id = c.id_categoria; 
 ```
 - [ ] **C37** 🟡 Muestra el inventario completo con el nombre de la sede y el del medicamento, ordenado por sede.
+```sql
+select m.nombre, s.nombre_sede, i.id_inventario, i.medicamento_id, i.minimo_stock, i.sede_id, i.stock  
+from inventario i
+join sede s on i.sede_id = s.id_sede
+join medicamento m on i.medicamento_id = m.id_medicamento 
+order by s.nombre_sede;
+```
 - [ ] **C38** 🟡 Muestra cada fórmula con la fecha de la cita, el nombre de la mascota, el medicamento y la cantidad.
+
+```sql
+select me.nombre as medicamento ,c.fecha_cita, m.nombre, f.cantidad 
+from cita c
+join formula f on f.cita_id = c.id_cita 
+join mascota m on c.mascota_id = m.id_mascota
+join medicamento me on me.id_medicamento = f.medicamento_id;
+
+```
 - [ ] **C39** 🟡 Lista los clientes con la ciudad donde viven y los nombres de sus mascotas, incluidos los clientes sin mascotas.
+```sql
+select c.nombre as nombre_cliente, l.nombre as Ciudad_residencia, m.nombre as nombre_mascota
+from cliente c
+join lugar l on c.ciudad_id = l.id_lugar
+join mascota m on m.cliente_id = c.id_cliente
+order by c.nombre;
+```																																															
 - [ ] **C40** 🟡 Muestra las presentaciones que ningún medicamento usa.
+
+```sql
+select *
+from presentacion p
+left join medicamento m on m.presentacion_id = p.id_presentacion
+where m.id_medicamento  is null;
+```
+
 - [ ] **C41** 🟡 Lista los veterinarios (cargo habilitado) que no tienen ninguna cita.
+```sql
+select p.*
+from personal p
+left join cita c on p.id_personal = c.veterinario_id
+where c.id_cita is null;
+```
 - [ ] **C42** 🟡 Lista los clientes que tienen al menos una mascota fallecida, con el nombre de la mascota.
+```sql
+select c.nombre as "cliente nombre", m.nombre as "nombre mascota"
+from cliente c
+right join mascota m on m.cliente_id = c.id_cliente
+where m.fecha_muerte is not NULL
+```
+
 - [ ] **C43** 🟡 Muestra los nombres de raza que se repiten entre especies distintas (por ejemplo, "Criollo"), con la especie de cada una.
-- [ ] **C44** 🔴 Muestra los medicamentos que maneja Chapinero pero no Laureles, usando solo JOINs (sin subconsultas ni operaciones de conjuntos).
+```sql
+select distinct(e.nombre), r1.nombre
+from raza r1
+join raza r2 on r1.nombre  = r2.nombre
+join especie e on e.id_especie = r1.especie_id
+where r1.especie_id <> r2.especie_id
+```
+- [ ] **C44-bis** 🔴 Muestra los servicios (nombre y precio) que se han prestado en citas de la sede Chapinero pero **nunca** en citas de la sede Laureles, usando solo JOINs (sin subconsultas, `NOT IN`, `NOT EXISTS`, `EXCEPT` ni CTE).
+  - Tablas: `servicios`, `cita`, `sede`.
+  - Un servicio puede aparecer muchas veces en `cita` de la misma sede: ¿qué pasa con las filas del resultado y cómo lo arreglas sin `GROUP BY`?
+  - Busca ambas sedes **por nombre**, no por id. ¿La condición del nombre de Laureles va en el `ON` o en el `WHERE`? Prueba ambas y compara.
+  - Necesitas `sede` y `cita` dos veces cada una (dos alias).
+  - Verificación: consulta por separado los servicios de cada sede y resta a mano.
+  - **Extra:** servicios que se prestan en alguna de las dos sedes pero no en ambas, solo con JOINs (pista: `FULL OUTER JOIN`).
+```sql
+
+```
+
+- [ ] **C44-ter** 🔴 Lista los veterinarios (nombre y apellido) que tienen citas **atendidas** en la sede Chapinero pero **ninguna** cita atendida en la sede Laureles, usando solo JOINs (sin subconsultas, `NOT IN`, `NOT EXISTS`, `EXCEPT` ni CTE).
+  - Tablas: `personal`, `cita`, `sede`.
+  - Tiene la misma estructura que el C44-bis, pero ahora hay **dos** condiciones sobre el lado "que no debe existir": la sede y el estado. ¿Dónde va `estado = 'atendida'` para `c_la`: en el `ON` o en el `WHERE`? ¿Y para `c_ch`?
+  - Trampa: un veterinario con una cita **cancelada** en Laureles **sí** debe salir. Comprueba que tu consulta lo incluye.
+  - Fíjate que `personal` tiene su propio `sede_id` (la sede donde trabaja). No es lo que se pregunta: usa la sede **de la cita**.
+  - Verificación: escribe también la intersección (atendidos en ambas sedes). Entre las dos consultas deben sumar todos los veterinarios con citas atendidas en Chapinero, sin repetir ninguno.
+```sql
+
+```
+
+- [ ] **C44-quater** 🔴 Lista **todos** los servicios (nombre y precio) que **no** tuvieron ninguna cita atendida en la sede Laureles durante el año 2025, incluidos los servicios que nunca han tenido citas. Usa solo JOINs (sin subconsultas, `NOT IN`, `NOT EXISTS`, `EXCEPT` ni CTE).
+  - Tablas: `servicios`, `cita`, `sede`.
+  - Diferencia con el C44-bis: ahora la tabla base **no** es `cita` sino `servicios`. ¿Con qué tabla empieza el `FROM`? ¿Sigues necesitando un alias `c_ch`?
+  - En el `ON` del `LEFT JOIN` de la cita van **cuatro** condiciones: el servicio, la sede, el estado y el rango de fechas. ¿Qué pasa con los servicios sin citas si pones la fecha en el `WHERE`?
+  - `fecha_cita` es `TIMESTAMPTZ`: filtra el año con un rango (`>=` inicio y `<` inicio del año siguiente), no con `LIKE` ni convirtiendo a texto.
+  - ¿Sigues necesitando `DISTINCT`? Piensa cuántas filas produce cada servicio cuando el `LEFT JOIN` no encuentra pareja.
+  - Verificación: cuenta los servicios totales y los que sí se atendieron en Laureles en 2025. Tu resultado debe tener exactamente la diferencia.
+```sql
+
+```
+
+### Self join: una tabla unida consigo misma
+
+Idea clave: en un *self join* usas la misma tabla **dos veces con alias distintos**, y cada alias cumple un **rol** diferente (empleado/jefe, mascota A/mascota B, cita anterior/cita siguiente). Antes de escribir SQL, decide qué rol tiene cada alias.
+
+- [ ] **SJ-1** 🟢 Lista las parejas de mascotas que pertenecen al **mismo cliente**: nombre del cliente, mascota A y mascota B.
+  - Tablas: `mascota` (dos veces: `m1`, `m2`), `cliente`.
+  - Primero únelas solo con `m1.cliente_id = m2.cliente_id` y mira el resultado: ¿aparece cada mascota emparejada **consigo misma**? ¿Aparece cada pareja **dos veces** (Max-Luna y Luna-Max)?
+  - Arregla los dos problemas con **una sola** condición sobre los id. ¿Por qué `m1.id_mascota <> m2.id_mascota` resuelve solo uno de los dos, y qué operador resuelve ambos?
+  - Verificación: un cliente con 3 mascotas debe producir exactamente 3 parejas. ¿Y uno con 4?
+```sql
+select c.nombre, m1.nombre, m2.nombre
+from mascota m1
+join mascota m2 on m1.cliente_id = m2.cliente_id and m1.id_mascota > m2.id_mascota
+join cliente c on m1.cliente_id = c.id_cliente
+```
+
+- [ ] **SJ-2** 🟡 Muestra los empleados que ganan **más que su jefe directo**: nombre y salario del empleado, nombre y salario del jefe.
+  - Tablas: `personal` (dos veces: `e` = empleado, `j` = jefe).
+  - La columna `jefe_id` está en la fila del **empleado** y apunta al `id_personal` del **jefe**. Escribe el `ON` y léelo en voz alta: "el jefe de `e` es `j` cuando...". Si lo escribes al revés (`j.jefe_id = e.id_personal`), ¿qué roles quedan intercambiados?
+  - ¿Qué pasa con la directora (no tiene jefe)? ¿Debe aparecer? ¿Importa usar `JOIN` o `LEFT JOIN` en esta pregunta en particular?
+  - Variante: muestra **todos** los empleados con el nombre de su jefe, y `'(sin jefe)'` cuando no tengan. Ahora sí importa el tipo de join; usa `COALESCE`.
+```sql
+select p1.nombre, p1.cargo_id, p1.salario, coalesce(p2.nombre,'Sin jefe') as "Jefe", p2.cargo_id, p2.salario
+from personal p1
+left join personal p2 on p1.jefe_id  = p2.id_personal
+```
+
+- [ ] **SJ-3** 🔴 Muestra las mascotas que **volvieron** a una cita dentro de los **15 días** siguientes a una cita atendida: nombre de la mascota, fecha de la cita atendida y fecha de la cita de regreso.
+  - Tablas: `cita` (dos veces: `c1` = cita atendida, `c2` = regreso), `mascota`.
+  - El `ON` combina igualdad y desigualdades: misma mascota, `c2` **después** de `c1`, y `c2` a lo sumo 15 días después (`c1.fecha_cita + interval '15 days'`). ¿Qué pasaría si olvidas la condición "después de"?
+  - El estado `'atendida'` es de `c1`, no de `c2`. ¿El regreso debe estar atendido también? Decide y justifica.
+  - Si una mascota tiene 3 citas en 10 días, ¿cuántas filas produce? Haz la cuenta a mano antes de ejecutar y compara.
+  - **Extra:** muestra solo el **primer** regreso de cada cita atendida, sin subconsultas (pista: un tercer alias `c3` con `LEFT JOIN` que busque una cita "entre `c1` y `c2`" y exige que no exista; es el anti-join que ya practicaste).
+```sql
+select m.nombre, c1.fecha_cita, c2.fecha_cita
+from cita c1
+join mascota m on c1.mascota_id = m.id_mascota and c1.estado= 'atendida' 
+join cita c2 on c2.mascota_id = c1.mascota_id
+			and c2.fecha_cita > c1.fecha_cita
+			and c2.fecha_cita <= c1.fecha_cita + interval '15 days'
+
+```
 
 ## Parte 5. Jerarquías: `lugar` y `personal`
 
 - [ ] **C45** 🟢 Lista todos los lugares con el nombre de su región (país, departamento, ciudad...).
+```sql
+select l.nombre, r.nombre  
+from lugar l
+join region r on l.region_id = r.id_region
+```
 - [ ] **C46** 🟡 Muestra cada ciudad con el nombre de su departamento (o distrito capital), usando un *self join* sobre `lugar`.
+```sql
+select l1.nombre as nombre_ciudad, l2.nombre as nombre_departamento
+from lugar l1
+join lugar l2 on l1.lugar_padre_id = l2.id_lugar 
+where l1.region_id = 5
+```
 - [ ] **C47** 🟡 Muestra cada sede con su ciudad, su departamento y su país en columnas separadas.
+
+```sql
+select  s.nombre_sede, l1.nombre, l2.nombre, l3.nombre
+from lugar l1
+left join lugar l2 on l1.lugar_padre_id  =  l2.id_lugar
+left join lugar l3 on l2.lugar_padre_id = l3.id_lugar
+right join sede s on s.ciudad_id = l1.id_lugar 
+
+```
+
+### CTE: consultas con nombre (preparación para C49 y C50)
+
+Idea clave: una CTE (`WITH nombre AS (...)`) es una **tabla temporal con nombre** que solo existe durante la consulta. Sirve para partir un problema en pasos: primero calculas algo, le pones nombre y después lo usas como si fuera una tabla más.
+
+- [ ] **CTE-1** 🟢 Reescribe la C47 con una CTE: primero calcula cada ciudad con su departamento y su país, y después une ese resultado con `sede`.
+  - Tablas: `lugar` (tres veces dentro de la CTE), `sede`.
+  - La CTE se puede llamar, por ejemplo, `ciudad_completa`, y no debe saber nada de las sedes. ¿Qué columnas necesita exponer para que la consulta principal pueda hacer el join con `sede`?
+  - Ejecuta primero la CTE sola (solo el `SELECT` de adentro) y revisa el resultado antes de unirla.
+  - Verificación: el resultado debe ser idéntico al de tu C47. ¿Cuál de las dos versiones te parece más fácil de leer?
+```sql
+
+```
+
+- [ ] **CTE-2** 🟡 Usando tu C48 como CTE, muestra solo los lugares que tienen **más hijos que el promedio** de hijos por lugar.
+  - Tablas: `lugar` (dos veces, dentro de la CTE).
+  - La CTE es tu C48 tal cual, con alias claros en las columnas. La consulta principal la usa **dos veces**: una para listar los lugares y otra para calcular el promedio.
+  - ¿El promedio debe incluir los lugares con 0 hijos? Cambia el resultado: decide y justifica.
+  - ¿Por qué esto es más difícil sin CTE? Intenta escribirlo sin `WITH` y compara.
+  - Verificación: calcula el promedio a mano con los datos del DML (total de lugares con padre ÷ total de lugares) y revisa que salgan los lugares correctos.
+```sql
+
+```
+
+- [ ] **CTE-3** 🟡 Muestra cada ciudad con **cuántos clientes** viven en ella y **cuántas sedes** tiene, usando **dos CTE**.
+  - Tablas: `lugar`, `cliente`, `sede`.
+  - Varias CTE se separan con coma: `WITH a AS (...), b AS (...) SELECT ...`. Solo se escribe un `WITH`.
+  - Trampa: intenta primero hacerlo **sin CTE**, con `lugar LEFT JOIN cliente LEFT JOIN sede` y un `GROUP BY`. Mira los números: ¿por qué salen inflados? Piensa cuántas filas produce una ciudad con 5 clientes y 2 sedes.
+  - Con las CTE, cada una cuenta por separado y después las unes por ciudad. ¿Qué tipo de join necesitas para que una ciudad sin sedes o sin clientes no desaparezca? ¿Qué muestras en vez de `NULL`?
+  - Verificación: la suma de la columna de clientes debe ser igual a `SELECT COUNT(*) FROM cliente WHERE ciudad_id IS NOT NULL`.
+```sql
+
+```
+
+### CTE recursiva: una consulta que se repite
+
+Idea clave: `WITH RECURSIVE` tiene dos partes unidas con `UNION ALL`. El **ancla** se ejecuta una sola vez y es el punto de partida. La parte **recursiva** se une con la propia CTE y produce el siguiente nivel; se repite, viendo solo las filas nuevas de la vuelta anterior, hasta que una vuelta no produce nada. Antes de escribir SQL, decide: ¿cuál es el punto de partida y en qué dirección avanzo?
+
+- [ ] **CTR-1** 🟢 Sin usar ninguna tabla, genera los números del 1 al 10 con una CTE recursiva. Agrega una segunda columna con la **suma acumulada** (1, 3, 6, 10...).
+  - El ancla es un `SELECT` sin `FROM`. La parte recursiva lee de la propia CTE.
+  - ¿Dónde va la condición que detiene la recursión? Quítala a propósito, con un `LIMIT 20` en la consulta principal para protegerte, y mira qué pasa.
+  - La suma acumulada es una columna que se **arrastra** de vuelta en vuelta: en cada fila nueva, ¿qué le sumas a la suma de la fila anterior?
+  - Verificación: la fila del 10 debe tener suma 55.
+```sql
+
+```
+
+- [ ] **CTR-2** 🟡 Partiendo de **Bogotá D.C.**, lista todos los lugares que están debajo de ella, a cualquier nivel, con su **nivel** (1 = localidad, 2 = barrio).
+  - Tablas: `lugar` (dentro de la CTE y en la parte recursiva).
+  - Ancla: el lugar Bogotá D.C., buscado **por nombre** y con nivel 0.
+  - Parte recursiva: **bajas** del padre a los hijos. Es el mismo `ON` de tu C48: ¿qué columna de `lugar` se compara con qué columna de la CTE?
+  - El nivel se arrastra igual que la suma de la CTR-1.
+  - ¿Debe aparecer Bogotá D.C. en el resultado? Si no, ¿dónde la filtras: en la CTE o en la consulta principal?
+  - Verificación: deben salir 6 localidades con nivel 1 y 8 barrios con nivel 2. Compáralo con el DML.
+```sql
+
+```
+
+- [ ] **CTR-3** 🟡 Partiendo del barrio **El Chicó**, **sube** hasta el país y muestra cada lugar del camino con cuántos niveles está por encima del barrio.
+  - Tablas: `lugar`.
+  - Ahora la dirección es al revés que en la CTR-2: avanzas del hijo al padre. ¿Cómo cambia el `ON`? Léelo en voz alta: "el siguiente lugar es el padre del que tengo, cuando...".
+  - ¿Por qué se detiene sola esta recursión, sin ninguna condición de parada? Piensa en el `lugar_padre_id` de Colombia.
+  - Verificación: debe salir El Chicó (0), Chapinero (1), Bogotá D.C. (2) y Colombia (3).
+  - **Extra:** cambia el barrio por Medellín. ¿Cuántos niveles salen ahora? Es la misma consulta y no tuviste que agregar ni quitar joins: eso es justamente lo que no podías hacer en la C47.
+  - Con esto la C49 ya es casi directa: solo te falta arrastrar el texto de la ruta y hacerlo para todos los barrios a la vez.
+```sql
+
+```
+
 - [ ] **C48** 🟡 Cuenta cuántos lugares "hijos" tiene cada lugar.
+```sql
+select p.nombre, COUNT(h.lugar_padre_id)
+from lugar p
+left join lugar h on p.id_lugar = h.lugar_padre_id 
+group by p.nombre, p.id_lugar 
+```
+
 - [ ] **C49** 🔴 Con una CTE recursiva, muestra la ruta completa de cada barrio hasta el país, por ejemplo *Chapinero > Bogotá D.C. > Colombia*.
 - [ ] **C50** 🔴 Con una CTE recursiva, lista todos los lugares que están dentro de Colombia, a cualquier nivel, con su profundidad.
 - [ ] **C51** 🟡 Muestra cada empleado con el nombre de su jefe y el cargo del jefe.
