@@ -1,7 +1,7 @@
-\c postgres
-DROP DATABASE IF EXISTS oficio;
+-- CockroachDB: se usa USE en vez de \c (comando propio de psql)
+DROP DATABASE IF EXISTS oficio CASCADE;
 CREATE DATABASE oficio;
-\c oficio
+USE oficio;
 
 CREATE TABLE estudiante (
     id_estudiante UUID PRIMARY KEY DEFAULT gen_random_uuid(),

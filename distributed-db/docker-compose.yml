@@ -1,51 +1,74 @@
-services:
-  primario:
-    image: postgres:18
-    container_name: primario
-    env_file: .env
-    environment:
-      REPLICATION_USER: ${REPLICATION_USER:-replicador}
-      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replica123}
-    command: >
-      postgres
-      -c wal_level=replica
-      -c max_wal_senders=10
-      -c wal_keep_size=256MB
-      -c hot_standby=on
-    volumes:
-      - datos-primario:/var/lib/postgresql
-      # Se ejecutan en orden alfabético, solo con el volumen vacío
-      - ./docker/00-replicacion.sh:/docker-entrypoint-initdb.d/00-replicacion.sh
-      - ./DDL.sql:/docker-entrypoint-initdb.d/01-DDL.sql
-      - ./DML.sql:/docker-entrypoint-initdb.d/02-DML.sql
-    ports:
-      - "5433:5432"
-    healthcheck:
-      # -h 127.0.0.1: el servidor temporal de la inicialización no escucha por TCP,
-      # así que solo responde cuando DDL y DML ya terminaron
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER}"]
-      interval: 3s
-      timeout: 3s
-      retries: 20
+# Cluster de CockroachDB con 3 nodos (modo inseguro, solo para clase)
+# Todos los nodos aceptan lecturas y escrituras; cada range se replica 3 veces (Raft)
 
-  replica:
-    image: postgres:18
-    container_name: replica
-    user: postgres
-    entrypoint: ["/replica-entrypoint.sh"]
-    environment:
-      PRIMARY_HOST: primario
-      REPLICATION_USER: ${REPLICATION_USER:-replicador}
-      PGPASSWORD: ${REPLICATION_PASSWORD:-replica123}
+x-nodo: &nodo
+  image: cockroachdb/cockroach:v25.2.0
+# Flags de cada nodo:
+#   --join: lista de nodos para encontrarse entre sí
+#   --advertise-addr: nombre con el que los otros nodos llegan a este
+#   --cache / --max-sql-memory: 15 % de la RAM cada uno (son 3 nodos en la misma máquina)
+
+services:
+  roach1:
+    <<: *nodo
+    container_name: roach1
+    hostname: roach1
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach1:26257 --cache=.15 --max-sql-memory=.15
     volumes:
-      - datos-replica:/var/lib/postgresql
-      - ./docker/replica-entrypoint.sh:/replica-entrypoint.sh
+      - datos-roach1:/cockroach/cockroach-data
     ports:
-      - "5434:5432"
-    depends_on:
-      primario:
-        condition: service_healthy
-        
+      - "26257:26257"   # SQL
+      - "8080:8080"     # consola web
+
+  roach2:
+    <<: *nodo
+    container_name: roach2
+    hostname: roach2
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach2:26257 --cache=.15 --max-sql-memory=.15
+    volumes:
+      - datos-roach2:/cockroach/cockroach-data
+    ports:
+      - "26258:26257"
+      - "8081:8080"
+
+  roach3:
+    <<: *nodo
+    container_name: roach3
+    hostname: roach3
+    command: start --insecure --join=roach1,roach2,roach3 --advertise-addr=roach3:26257 --cache=.15 --max-sql-memory=.15
+    volumes:
+      - datos-roach3:/cockroach/cockroach-data
+    ports:
+      - "26259:26257"
+      - "8082:8080"
+
+  # Inicializa el cluster una sola vez y carga DDL + DML; luego termina
+  # Si el cluster ya estaba inicializado (volúmenes con datos) no vuelve a cargar nada
+  init:
+    image: cockroachdb/cockroach:v25.2.0
+    container_name: roach-init
+    depends_on: [roach1, roach2, roach3]
+    volumes:
+      - ./DDL.sql:/sql/DDL.sql:ro
+      - ./DML.sql:/sql/DML.sql:ro
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        until salida=$$(cockroach init --insecure --host=roach1:26257 2>&1); do
+          if echo "$$salida" | grep -q "already been initialized"; then
+            echo "Cluster ya inicializado, no se recargan los datos"
+            exit 0
+          fi
+          echo "Esperando a los nodos..."
+          sleep 2
+        done
+        echo "Cluster inicializado, cargando DDL y DML..."
+        cockroach sql --insecure --host=roach1:26257 --file=/sql/DDL.sql
+        cockroach sql --insecure --host=roach1:26257 --file=/sql/DML.sql
+        echo "Listo"
+    restart: "no"
+
 volumes:
-  datos-primario:
-  datos-replica:
+  datos-roach1:
+  datos-roach2:
+  datos-roach3:
