@@ -48,7 +48,7 @@ join registro_actividad ra on e.id_estudiante = ra. estudiante_id
 group by e.nombre
 order by "precio" DESC;
 
--- Estudiantes Según dinero recaudado SIN CTE
+-- Estudiantes Según dinero recaudado CON CTE
 with Clasificador as (
 select e.nombre, sum(ra.precio) as precio,
 case 
